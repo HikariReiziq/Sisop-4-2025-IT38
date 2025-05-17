@@ -1,0 +1,17 @@
+services:
+  antink-server:
+    build:
+      context: .
+    container_name: soal_3-antink-server-1
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - ./it24_host:/source
+      - ./antink_mount:/antink_mount  
+      - ./antink-logs:/app/antink-logs
+    command: ./antink_fs /source /antink_mount
+
