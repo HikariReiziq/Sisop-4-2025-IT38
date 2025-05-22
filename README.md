@@ -22,7 +22,7 @@ Semoga Allah memudahkan langkah kita semua dalam menuntut ilmu, mengamalkannya, 
 |Dira Muhammad Ilyas S. A.  | 5027241033 |
 |Thariq Kyran Aryunaldi     | 5027241073 |
 
-
+## SOAL 3    
 Soal no 3 tentang sistem **AntiNK (Anti Nafis Kimcun)** yang:
 
 - Dibuat menggunakan **Docker + FUSE** di container `antink-server`.
