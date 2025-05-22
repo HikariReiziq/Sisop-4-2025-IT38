@@ -22,6 +22,225 @@ Semoga Allah memudahkan langkah kita semua dalam menuntut ilmu, mengamalkannya, 
 |Dira Muhammad Ilyas S. A.  | 5027241033 |
 |Thariq Kyran Aryunaldi     | 5027241073 |
 
+---
+
+## ✅ SOAL 1 – **Hexed Anomaly Visualizer** (`hexed.c`)
+
+### 🧠 Deskripsi Soal
+
+Shorekeeper menemukan teks anomali dalam format **hexadecimal**. Kamu diminta membuat program untuk:
+
+* Mengonversi string hex dari file `.txt` menjadi file **image `.png`**.
+* Menyimpan hasil ke folder `image/`.
+* Mencatat semua konversi ke dalam `conversion.log`.
+
+### 📁 Struktur Output
+
+```
+anomali/
+├── 1.txt
+├── 2.txt
+├── ...
+├── image/
+│   ├── 1_image_2025-05-11_18:35:26.png
+│   └── ...
+└── conversion.log
+```
+
+---
+
+## 🔧 Penjelasan Kode `hexed.c`
+
+```c
+#define DOWNLOAD_CMD ...
+#define UNZIP_CMD ...
+```
+
+👉 Mengunduh file ZIP dan mengekstraknya ke folder `anomali`.
+
+```c
+void get_current_timestamp(...) { ... }
+```
+
+📅 Mengambil timestamp saat ini. Digunakan untuk penamaan file dan log.
+
+```c
+void log_conversion(...) { ... }
+```
+
+📝 Menulis log sukses/gagal konversi ke `conversion.log`.
+
+```c
+void hex_to_bin(...) { ... }
+```
+
+🔁 Mengubah string hex jadi binary:
+
+* Disaring hanya karakter valid (`isxdigit`)
+* Kalau panjang ganjil, ditambahi `0`.
+
+```c
+void process_file(...) { ... }
+```
+
+✨ Proses utama:
+
+1. Buka file `.txt`.
+2. Baca semua isinya.
+3. Konversi hex ke binary.
+4. Simpan sebagai `.png`.
+5. Tulis ke log.
+
+```c
+int main() { ... }
+```
+
+🏁 Langkah-langkah:
+
+1. Download → Unzip → Hapus zip
+2. Buat folder
+3. Iterasi semua `.txt` di `anomali/`
+4. Konversi semua → Simpan log
+
+---
+
+## 🚀 Cara Menjalankan
+
+```bash
+gcc hexed.c -o hexed
+./hexed
+```
+
+---
+
+## ✅ SOAL 2 – **Baymax Reconstructor** (`baymax.c`)
+
+### 🧠 Deskripsi Soal
+
+Ilmuwan menemukan **14 potongan file Baymax** berformat `Baymax.jpeg.000` hingga `.013`. Kamu diminta:
+
+* Buat virtual filesystem FUSE yang:
+
+  * Gabungkan fragment → tampilkan sebagai `Baymax.jpeg`.
+  * Bisa membaca, menyalin, dan menghapus file virtual.
+  * Bisa menyimpan file baru dalam fragment ukuran 1KB.
+  * Log semua aktivitas ke `activity.log`.
+
+### 📁 Struktur
+
+```
+relic/
+├── Baymax.jpeg.000
+├── ...
+bebas/        ← mount dir (isi Baymax.jpeg utuh)
+activity.log
+```
+
+---
+
+## 🔧 Penjelasan Kode `baymax.c`
+
+```c
+#define FUSE_USE_VERSION 35
+#include <fuse3/fuse.h>
+...
+```
+
+📦 Include FUSE3 dan library standar.
+
+```c
+#define FRAGMENT_SIZE 1024
+#define RELIC_DIR "relic"
+#define virtual_file "Baymax.jpeg"
+```
+
+📁 Konfigurasi ukuran potongan (1KB), nama folder sumber, dan nama file virtual.
+
+---
+
+### 🔸 `fs_getattr`, `fs_readdir`, `fs_open`
+
+```c
+fs_getattr(...) // Mendefinisikan atribut file & folder
+fs_readdir(...) // Mengisi isi direktori virtual
+fs_open(...)    // Log saat file dibuka
+```
+
+---
+
+### 🔸 `fs_read`
+
+```c
+fs_read(...) // Membaca fragment secara sekuensial
+```
+
+🔍 Fungsi ini membaca semua fragment dari `.000` hingga `.013` dan menyusunnya sebagai satu file utuh.
+
+---
+
+### 🔸 `fs_create`, `fs_write`, `fs_release`
+
+```c
+fs_create(...)  // Simpan nama file baru
+fs_write(...)   // Tulis ke file temp
+fs_release(...) // Setelah selesai ditulis:
+                // → potong jadi fragment 1KB
+                // → simpan ke folder relic
+                // → log file yang ditulis
+```
+
+---
+
+### 🔸 Logging
+
+```c
+log_activity(...) // Nge-log semua aksi (READ, WRITE, DELETE, COPY)
+```
+
+---
+
+### 🛠 Main Function
+
+```c
+int main(...) {
+    // Download ZIP berisi fragment
+    // Unzip → Jalankan FUSE dengan mount point “bebas”
+}
+```
+
+---
+
+## ⚠️ NOTE PENTING
+
+> ❗ Hingga laporan ini ditulis, **fitur copy, remove, dan fragmentasi untuk file baru belum berhasil diselesaikan** sepenuhnya. Setelah filesystem di-mount, `Baymax.jpeg` memang terlihat, namun:
+>
+> * ❌ `cp Baymax.jpeg /tmp/` → Tidak berhasil
+> * ❌ `rm Baymax.jpeg` → Tidak menghapus pecahan
+> * ❌ Membuat file baru → Belum memotong dengan benar
+>
+> Praktikan mengalami **stuck** dan belum menemukan solusi final untuk masalah tersebut.
+
+---
+
+## 🚀 Cara Menjalankan
+
+```bash
+gcc `pkg-config fuse3 --cflags --libs` baymax.c -o baymax
+mkdir bebas
+./baymax bebas
+```
+
+Mount akan berada di folder `bebas/`. Untuk unmount:
+
+```bash
+fusermount3 -u bebas
+```
+
+---
+
+
+
+
 ## SOAL 3    
 Soal no 3 tentang sistem **AntiNK (Anti Nafis Kimcun)** yang:
 
