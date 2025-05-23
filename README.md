@@ -758,3 +758,317 @@ Membuat direktori uji dan file teks untuk keperluan pengujian:
 ```
 
 Mengunduh file gambar untuk pengujian deteksi kata kunci di nama file. Disimpan di folder `it24_host`.
+
+
+
+
+## SOAL 4
+Soal 4 adalah untuk membuat sebuah sistem file virtual yang akan menggunakan FUSE. Sistem file ini mentransformasi data otomatis pada file yang disimpan di dalam direktori tertentu, seperti enkripsi, kompresi, dan shifting.
+Ada 7 bagian dari sistem file ini, atau 7 area. Yaitu:
+- Starter/Beginning Area - Starter Chiho
+- World’s End Area - Metropolis Chiho
+- World Tree Area - Dragon Chiho
+- Black Rose Area - Black Rose Chiho
+- Tenkai Area - Heaven Chiho
+- Youth Area - Skystreet Chiho
+- Prism Area - 7sRef Chiho
+
+Untuk semua area ada aturan dan transformasi file yang khusus untuk setiap area/direktori tersebut.
+Jadi untuk terakhirnya file di direktori chiho akan terbentuk seperti:
+
+```
+
+├── chiho/
+│   ├── starter/
+│   ├── metro/
+│   ├── dragon/
+│   ├── blackrose/
+│   ├── heaven/
+│   └── youth/
+│
+└── fuse_dir/
+	├── starter/
+	├── metro/
+	├── dragon/
+	├── blackrose/
+	├── heaven/
+
+```
+
+### Starter area - /starter/
+
+Untuk semua file yang disimpan akan otomatis diberikan ekstensi `.mai`. Jadi akan muncul seperti `file.mai` di filesystem fisik. Kecuali jika menggunakan FUSE yang akan menunjukkan file nya seperti biasa.
+```c
+
+// di dalam get_real_path() dan maimai_getattr()
+if (strstr(path, "/starter/") != NULL) {
+    strcat(real_path, ".mai");  // tambah ekstensi .mai
+}
+
+
+// dalam maimai_readdir()
+if (strstr(path, "/starter") != NULL) {
+    while ((de = readdir(dp)) != NULL) {
+        struct stat st;
+        memset(&st, 0, sizeof(st));
+        st.st_ino = de->d_ino;
+        st.st_mode = de->d_type << 12;
+
+        char display_name[MAX_PATH_LEN];
+        strcpy(display_name, de->d_name);
+        
+        // bagian yang menghilangkan .mai
+        char* ext = strrchr(display_name, '.');
+        if (ext && strcmp(ext, ".mai") == 0) {
+            *ext = '\0'; // Potong ekstensi .mai
+        }
+
+        if (filler(buf, display_name, &st, 0, 0)) break;
+    }
+}
+
+
+```
+Untuk cek test case nya, gunakan:
+```
+
+* buat file
+echo "Ini contoh file" > fuse_dir/starter/contoh.txt
+
+* Cek di backend
+ls -la chiho/starter/  - Harusnya ada contoh.txt.mai
+cat chiho/starter/contoh.txt.mai  - Isi harus sama
+
+* Baca melalui FUSE
+cat fuse_dir/starter/contoh.txt  - harusnya tampil tanpa .mai
+
+
+```
+
+### Metropolis Chiho - /metro/
+
+Transformasi file disini adalah shift bytes. Setiap byte diubah berdasarkan posisinya.
+
+Penulisan (+shift): `(+shift): byte[i] = (byte[i] + i) % 256`
+
+Pembacaan (-shift): `(-shift): byte[i] = (byte[i] - i + 256) % 256`
+
+Contoh:
+Data: `[0x41, 0x42, 0x43]` (ASCII: "ABC")
+
+Disimpan: `[0x41+0, 0x42+1, 0x43+2]` → `[0x41, 0x43, 0x45]` ("ACE")
+
+Dibaca: Dikembalikan ke "ABC".
+
+```c
+
+// fungsi transformasi
+void shift_bytes(char* data, size_t size, int direction) {
+    for (size_t i = 0; i < size; i++) {
+        int shift = (i % 256);
+        if (direction > 0) {  // enkripsi (+shift)
+            data[i] = (data[i] + shift) % 256;
+        } else {  // dekripsi (-shift)
+            data[i] = (data[i] - shift + 256) % 256;
+        }
+    }
+}
+
+// dalam maimai_read() dan maimai_write()
+if (strstr(path, "/metro/") != NULL) {
+    shift_bytes(temp_buf, res, -1);  // dekripsi saat read
+
+    //atau
+
+    shift_bytes(temp_buf, size, 1);  // enkripsi saat write
+}
+
+```
+
+Untuk cek test case nya, gunakan:
+```
+* buat file
+echo -n "abcd" > fuse_dir/metro/test_shift.txt
+
+* cek di backend
+xxd chiho/metro/test_shift.txt 
+* Harusnya: 
+ a -> a (tidak shift)
+ b -> c (+1)
+ c -> e (+2)
+ d -> g (+3)
+
+* Baca melalui FUSE
+cat fuse_dir/metro/test_shift.txt  - harusnya kembali ke "abcd"
+```
+### Dragon Chiho - /dragon/
+
+File yang disimpan di direktori ini dienkripsi menggunakan ROT13 di direktori asli.
+Setiap huruf digeser 13 posisi dalam alfabet.
+Contoh: "HELLO" → "URYYB", "test" → "grfg".
+
+```c
+
+// fungsi transformasi
+void rot13_transform(char* data, size_t size) {
+    for (size_t i = 0; i < size; i++) {
+        if (data[i] >= 'a' && data[i] <= 'z') {
+            data[i] = 'a' + ((data[i] - 'a' + 13) % 26);
+        } else if (data[i] >= 'A' && data[i] <= 'Z') {
+            data[i] = 'A' + ((data[i] - 'A' + 13) % 26);
+        }
+    }
+}
+
+// dalam maimai_read() dan maimai_write()
+if (strstr(path, "/dragon/") != NULL) {
+    rot13_transform(temp_buf, res); 
+}
+
+```
+Untuk cek test case nya, gunakan:
+```
+
+* buat file
+echo "Hello World" > fuse_dir/dragon/rot13_test.txt
+
+* cek di backend
+cat chiho/dragon/rot13_test.txt  - harusnya terenkripsi ROT13 ("Uryyb Jbeyq")
+
+* baca lewat FUSE
+cat fuse_dir/dragon/rot13_test.txt  - harusnya "Hello World"
+
+```
+
+
+### Black Rose Chiho - /blackrose/
+
+File yang disimpan di area/direktori ini akan disimpan datanya dalam format biner murni, tanpa enkripsi atau encoding tambahan.
+
+Untuk di gunakan:
+```
+* buat file
+echo "Ini data biner" > fuse_dir/blackrose/test.bin
+xxd fuse_dir/blackrose/test.bin
+
+* Harusnya muncul: Ini data biner
+
+cp pic.jpg fuse_dir/blackrose/pic.jpg
+xxd chiho/blackrose/pic.jpg
+(butuh file pic.jpg)
+```
+
+### Heaven Chiho - /heaven/
+
+Untuk file yang disimpan di area ini akan di lindungi enkripsi AES-256-CBC dengan setiap file memiliki IV unik yang disimpan di file terpisah (ekstensi `.iv)`.
+
+AES key adalah : `SEGAMaimai2025ChihoSEGAMaimai2025Chiho`
+
+Jadi contoh struktur file nya akan terbentuk seperti: `secret.txt` (untuk data yang terenkripsi) dan `secret.txt.iv` (file IV).
+
+```c
+// dalam maimai_write() - enkripsi
+if (strstr(path, "/heaven/") != NULL) {
+    unsigned char iv[AES_BLOCK_SIZE];
+    RAND_bytes(iv, AES_BLOCK_SIZE);  // generate IV acak
+
+    // simpan IV ke file terpisah
+    snprintf(iv_path, MAX_PATH_LEN, "%s%s", real_path, IV_FILE_EXT);
+    fwrite(iv, 1, AES_BLOCK_SIZE, iv_file);
+
+    // enkripsi
+    aes_encrypt(buf, size, encrypted, iv);
+    write(fd, encrypted, enc_len);
+}
+
+// dalam maimai_read() - dekripsi
+if (strstr(path, "/heaven/") != NULL) {
+    snprintf(iv_path, MAX_PATH_LEN, "%s%s", real_path, IV_FILE_EXT);
+    fread(iv, 1, AES_BLOCK_SIZE, iv_file);
+
+    // dekripsi
+    aes_decrypt(temp_buf, res, decrypted, iv);
+}
+```
+
+Untuk cek test case nya, gunakan:
+```
+* buat file
+echo "Data rahasia" > fuse_dir/heaven/secret.txt
+
+* cek di backend
+ls -la chiho/heaven/  - harusnya ada secret.txt dan secret.txt.iv
+xxd chiho/heaven/secret.txt  - harusnya terenkripsi
+
+* baca melalui FUSE
+cat fuse_dir/heaven/secret.txt  - harusnya balik ke "Data rahasia"
+
+```
+### Skystreet Chiho - /youth/
+
+FIle yang disimpan di area ini akan dikompresi menggunakan gzip
+
+```c
+// dalam maimai_write() - kompresi
+if (strstr(path, "/youth/") != NULL) {
+    size_t compressed_len = compressBound(size);
+    gzip_compress(buf, size, compressed, &compressed_len);
+    write(fd, compressed, compressed_len);
+}
+
+// dalam maimai_read() - dekompresi
+if (strstr(path, "/youth/") != NULL) {
+    gzip_decompress(temp_buf, res, decompressed, &actual_decompressed);
+    memcpy(buf, decompressed, actual_decompressed);
+}
+```
+
+Untuk cek test case nya, gunakan:
+```
+- buat file
+echo "Ini file yang dikompresi" > fuse_dir/youth/compressed.txt
+
+- cek di backend
+file chiho/youth/compressed.txt  - harusnya terdeteksi sebagai gzip
+
+- baca melalui FUSE
+cat fuse_dir/youth/compressed.txt  - harusnya tampil normal
+```
+
+### 7sRef Chihi - /7sref/
+
+Dijelaskan pada soal bahwa 7sRef ini merupakan “gateway” ke semua chiho lain. Sehingga, area ini adalah area spesial yang dapat mengakses semua area lain melalui sistem penamaan khusus.
+ Konsepnya adalah direktori virtual yang memetakan nama file dengan format `area_namafile` ke struktur fisik `area/nama_file`.
+
+`[area]_[nama_file]`
+
+Contoh:
+- `/fuse_dir/7sref/starter_guide.txt` ↔ `/fuse_dir/starter/guide.txt`
+- `/fuse_dir/7sref/metro_progress.dat` ↔ `/fuse_dir/metro/progress.dat`
+- `/fuse_dir/7sref/heaven_scores.dat` ↔ `/fuse_dir/heaven/scores.dat`
+
+```c
+// dalam get_real_path()
+if (strstr(path, "/7sref/") != NULL) {
+    char* filename = strrchr(path, '/') + 1;
+    char* underscore = strchr(filename, '_');
+    *underscore = '\0';
+    char* area = filename;
+    char* real_filename = underscore + 1;
+
+    snprintf(real_path, MAX_PATH_LEN, "%s/%s/%s", 
+             mc->base_path, area, real_filename);
+    *underscore = '_';  // Kembalikan underscore
+}
+```
+
+Untuk cek test case nya, gunakan:
+```
+* akses file starter melalui gateway
+echo "Ini dari gateway" > fuse_dir/7sref/starter_gateway_test.txt
+
+* harusnya muncul di:
+cat fuse_dir/starter/gateway_test.txt
+ls chiho/starter/  - harusnya ada gateway_test.txt.mai
+
+```
